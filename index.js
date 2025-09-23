@@ -359,7 +359,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
-
+const openBtn = document.querySelector(".open");
+      if (openBtn) {
+        openBtn.addEventListener("click", () => {
+          window.open(data.openURLPdf || data.downloadURLPdf, "_blank");
+        });
+      }
   /* -------------------- ОТПРАВКА ФОРМЫ -------------------- */
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
