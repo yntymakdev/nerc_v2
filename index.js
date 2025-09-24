@@ -292,8 +292,8 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         </section>
       `;
-
-     // 📥 Скачать QR
+//????????????????????? Скачать QR
+      // 📥 Скачать QR
 const qrDownloadBtn = document.getElementById("download-qr");
 if (qrDownloadBtn) {
   qrDownloadBtn.addEventListener("click", async () => {
@@ -323,15 +323,16 @@ if (qrDownloadBtn) {
   });
 }
 
-      // Кнопка "Назад"
+
+      // Кнопка "Назад" — вернуться на главную
       const backBtn = document.querySelector(".btn-back");
       if (backBtn) {
         backBtn.addEventListener("click", () => {
-          window.location.reload();
+          window.location.reload(); // возвращаем на главную
         });
       }
 
-      // Скачать PDF
+      // Скачать PDF (привяжется, только если кнопка есть в DOM)
       const downloadBtn = document.getElementById("download-pdf");
       if (downloadBtn) {
         downloadBtn.addEventListener("click", () => {
@@ -339,6 +340,7 @@ if (qrDownloadBtn) {
           link.href = data.downloadURLPdf;
           link.download = "Квитанция.pdf";
           document.body.appendChild(link);
+          // 👉 Отправляем ссылку в Flutter
           if (window.flutter_inappwebview) {
             window.flutter_inappwebview.callHandler("onDownload", link.href);
           }
@@ -346,6 +348,57 @@ if (qrDownloadBtn) {
           document.body.removeChild(link);
         });
       }
+
+      const saveQrBtn = document.getElementById("save-qr");
+      if (saveQrBtn) {
+        saveQrBtn.addEventListener("click", async () => {
+        const qrImage = document.getElementById("qr-image");
+        if (!qrImage) return;
+
+        try {
+          const originalUrl = qrImage.src;
+
+          // 👉 Отправляем в Flutter оригинальную ссылку
+          if (window.flutter_inappwebview) {
+            window.flutter_inappwebview.callHandler("onDownloadQr", originalUrl);
+          }
+
+          // Если хочешь ещё и "скачать" картинку как файл:
+          const link = document.createElement("a");
+          link.href = originalUrl;
+          link.download = "qr-code.png";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+
+        } catch (err) {
+          console.error("Ошибка сохранения QR:", err);
+          alert("Не удалось сохранить QR. Попробуйте снова.");
+        }
+        });
+      }
+
+      const openBtn = document.querySelector(".open");
+
+      if (openBtn) {
+        openBtn.addEventListener("click", () => {
+          // Выбираем корректную ссылку
+          const pdfLink = data.openURLPdf || data.downloadURLPdf;
+
+          // Открываем PDF в новом окне
+          if (pdfLink) {
+            window.open(pdfLink, "_blank");
+
+            // Отправляем ссылку в Flutter
+            if (window.flutter_inappwebview && typeof window.flutter_inappwebview.callHandler === "function") {
+              window.flutter_inappwebview.callHandler("onOpenPdf", pdfLink);
+            }
+          } else {
+            console.error("Ссылка на PDF не задана!");
+          }
+        });
+      }
+
 
       // Кнопка "Оплатить"
       const payActionBtn = document.querySelector(".btn-pay-main");
@@ -360,12 +413,6 @@ if (qrDownloadBtn) {
       }
     });
   }
-const openBtn = document.querySelector(".open");
-      if (openBtn) {
-        openBtn.addEventListener("click", () => {
-          window.open(data.openURLPdf || data.downloadURLPdf, "_blank");
-        });
-      }
   /* -------------------- ОТПРАВКА ФОРМЫ -------------------- */
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
