@@ -4,6 +4,8 @@ document.addEventListener("DOMContentLoaded", () => {
     { name: "Водоканал", img: "./images/vodokonal.png", code: "water" },
     { name: "Теплосеть", img: "./images/teploset.png", code: "heating" },
     { name: "Тазалык", img: "./images/tazalyk.png", code: "sewerage" },
+    { name: "Электричество", img: "./images/electricity.png", code: "electricity" },
+    { name: "Газпром", img: "./images/gazprom.png", code: "gas" },
   ];
   const API_URL = "https://ners.billing.kg/ws/public/api/v1/clients/temp/estate";
   const username = "admin-fr";
@@ -222,220 +224,195 @@ document.addEventListener("DOMContentLoaded", () => {
       form.insertAdjacentHTML("beforeend", html);
     }
 
-    const resetBtn = document.querySelector(".btn-reset");
-    resetBtn.addEventListener("click", () => {
-      resetFormState();
-    });
-
-    const payBtn = document.querySelector(".btn-pay");
-    payBtn.addEventListener("click", () => {
-      // Добавляем состояние в историю браузера перед переходом к оплате
-      pushState("payment");
-
-      const main = document.querySelector("main");
-      const hasPdf = Boolean(data?.downloadURLPdf);
-
-      const parseDebt = (v) => {
-        if (v == null) return NaN;
-        const n = parseFloat(String(v).replace(/\s/g, "").replace(",", "."));
-        return Number.isFinite(n) ? n : NaN;
-      };
-
-      const debtValue = parseDebt(data?.debt);
-      const isBlocked = Number.isFinite(debtValue) && (debtValue <= 0 || debtValue > 300000);
-
-      if (!hasPdf) {
-        const welcome = document.querySelector(".welcome");
-        if (welcome) welcome.style.display = "none";
-        selectedSection.style.display = "none";
-
-        const errorSection = document.createElement("section");
-        errorSection.className = "payment-info payment-info--error";
-        errorSection.innerHTML = `
-          <h1>Квитанция не найдена</h1>
-          <p>К сожалению что-то пошло не так. Повторите попытку позже.</p>
-          <button class="back-to-input">Ввести лицевой счёт</button>
-        `;
-        main.appendChild(errorSection);
-
-        const backBtn = errorSection.querySelector(".back-to-input");
-        backBtn.addEventListener("click", () => {
-          errorSection.remove();
-          if (welcome) welcome.style.display = "";
-          selectedSection.style.display = "flex";
+    document.addEventListener(
+      "click",
+      (e) => {
+        if (e.target.classList.contains("btn-reset")) {
           resetFormState();
-          selectedSection.scrollIntoView({ behavior: "smooth", block: "start" });
-        });
-        return;
-      }
+        }
+        if (e.target.classList.contains("btn-pay")) {
+          const period = data?.period || "";
+          const debt = data?.debt || "";
+          const deeplinkURL = data?.deeplinkURL || null;
+          const downloadURLPdf = data?.downloadURLPdf || null;
+          const openURLPdf = data?.openURLPdf || null;
+          const qrURL = data?.qrURL || null;
+          showPaymentSection({ period, debt, deeplinkURL, downloadURLPdf, openURLPdf, qrURL });
+        }
+      },
+      { once: false }
+    );
+  }
 
-      main.innerHTML = `
-        <section class="payment-info">
-          <h1>Квитанция готова</h1>
-          <div class="payment-info__actions">
-            <button class="open">Открыть квитанцию</button>
-            <button id="download-pdf" class="btn-secondary">
-              <img src="./images/pdf.svg" />
-              <p>Скачать PDF</p>
-            </button>
-          </div>
-          <h2>Вы можете оплатить её через QR</h2>
-          <div class="payment-info__detail">
-            <div><p>Единый лицевой счёт</p><p>${singleAccount}</p></div>
-            <div><p>Адрес</p><p>${address}</p></div>
-            <div><p>Плательщик</p><p>${fullName}</p></div>
-            <div><p>Период</p><p>${period}</p></div>
-            <div><p>Задолженность (сом)</p><p>${data?.debt ?? ""}</p></div>
+  function showPaymentSection(data) {
+    document.body.innerHTML = `
+      <div class="container-payment">
+        <header>
+          <img src="./images/logo.svg" alt="Header Logo" class="header-logo" />
+          <button type="button" class="btn-back">Назад</button>
+        </header>
+        <div class="payment-page">
+          <div class="info">
+            <div class="info-data">
+              <p class="title">Расчётный месяц</p>
+              <p class="data">${data.period || "—"}</p>
+            </div>
+            <div class="info-data">
+              <p class="title">Сумма к оплате</p>
+              <p class="data">${data.debt || "—"}</p>
+            </div>
           </div>
           ${
-            !isBlocked
+            data.qrURL
               ? `
-            <div class="payment-info__qr-block">
-              <div class="payment-info__qr">
-                <ol>
-                  <li>Откройте приложение банка</li>
-                  <li>Откройте сканер QR</li>
-                  <li>Отсканируйте данный QR-код</li>
-                  <li>Подтвердите оплату</li>
-                </ol>
-                <div class="qr-wrapper">
-                  <img id="qr-image" src="${data.qrCodeURL || ""}" alt="QR-код для оплаты" />
-                  <button id="download-qr" class="btn-secondary"> Скачать </button>
-                </div>
+            <div class="qr-section">
+              <img src="${data.qrURL}" alt="QR-код" id="qr-image" />
+              <div class="button-container">
+                <button type="button" class="button-qr" id="save-qr">Сохранить QR</button>
+                <button type="button" class="button-qr" id="download-qr">Скачать QR</button>
               </div>
-            </div>
-            <div class="payment-info__footer">
-              <div class="payment-info__buttons">
-                <button class="btn-back">Назад</button>
-                <button class="btn-pay-main">Оплатить</button>
-              </div>
-              <p>
-                Внимание! Оплата производится по единому лицевому счёту за всех поставщиков. Вы выбираете поставщика только для просмотра деталей по нему.
-              </p>
             </div>
           `
-              : `<div class="payment-info__blocked">
-                <p>Оплата недоступна: переплата, 0 сом или сумма свыше 300 000 сом. Для уточнения обратитесь в свою обслуживающую организацию по г. Токмок.</p>
-              </div>`
+              : ""
           }
-        </section>
-      `;
-
-      // Скачать QR
-      const qrDownloadBtn = document.getElementById("download-qr");
-      if (qrDownloadBtn) {
-        qrDownloadBtn.addEventListener("click", async () => {
-          const qrImage = document.getElementById("qr-image");
-          if (!qrImage || !qrImage.src) return;
-
-          try {
-            const originalUrl = qrImage.src;
-
-            // Отправляем оригинальную ссылку в Flutter
-            if (window.flutter_inappwebview) {
-              window.flutter_inappwebview.callHandler("onDownloadQr", originalUrl);
+          <div class="actions-buttons">
+            <button type="button" class="btn-pay-main">Оплатить</button>
+            ${
+              data.downloadURLPdf
+                ? `
+              <button type="button" class="open">Открыть квитанцию</button>
+              <button type="button" class="download" id="download-pdf">Скачать квитанцию</button>
+            `
+                : ""
             }
+          </div>
+        </div>
+      </div>
+    `;
 
-            // Дополнительно "скачать" картинку в браузере
-            const link = document.createElement("a");
-            link.href = originalUrl;
-            link.download = "qr-code.png";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          } catch (err) {
-            console.error("Ошибка при скачивании QR:", err);
-            alert("Не удалось скачать QR. Попробуйте снова.");
-          }
-        });
-      }
+    // Переходим в состояние "payment"
+    pushState("payment");
 
-      // Кнопка "Назад" — вернуться на главную
-      const backBtn = document.querySelector(".btn-back");
-      if (backBtn) {
-        backBtn.addEventListener("click", () => {
-          returnToMain(); // используем ту же функцию, что и для браузерной кнопки "Назад"
-        });
-      }
+    document.querySelectorAll(".header-logo").forEach((logo) => {
+      logo.style.cursor = "pointer";
+      logo.addEventListener("click", () => {
+        returnToMain();
+      });
+    });
 
-      // Скачать PDF
-      const downloadBtn = document.getElementById("download-pdf");
-      if (downloadBtn) {
-        downloadBtn.addEventListener("click", () => {
-          const link = document.createElement("a");
-          link.href = data.downloadURLPdf;
-          link.download = "Квитанция.pdf";
-          document.body.appendChild(link);
-          // Отправляем ссылку в Flutter
+    const downloadQrBtn = document.getElementById("download-qr");
+    if (downloadQrBtn) {
+      downloadQrBtn.addEventListener("click", async () => {
+        const qrImage = document.getElementById("qr-image");
+        if (!qrImage) return;
+
+        try {
+          const originalUrl = qrImage.src;
+
+          // Отправляем в Flutter оригинальную ссылку
           if (window.flutter_inappwebview) {
-            window.flutter_inappwebview.callHandler("onDownload", link.href);
+            window.flutter_inappwebview.callHandler("onDownloadQr", originalUrl);
           }
+
+          // Дополнительно "скачать" картинку в браузере
+          const link = document.createElement("a");
+          link.href = originalUrl;
+          link.download = "qr-code.png";
+          document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
-        });
-      }
+        } catch (err) {
+          console.error("Ошибка при скачивании QR:", err);
+          alert("Не удалось скачать QR. Попробуйте снова.");
+        }
+      });
+    }
 
-      const saveQrBtn = document.getElementById("save-qr");
-      if (saveQrBtn) {
-        saveQrBtn.addEventListener("click", async () => {
-          const qrImage = document.getElementById("qr-image");
-          if (!qrImage) return;
+    // Кнопка "Назад" — вернуться на главную
+    const backBtn = document.querySelector(".btn-back");
+    if (backBtn) {
+      backBtn.addEventListener("click", () => {
+        returnToMain(); // используем ту же функцию, что и для браузерной кнопки "Назад"
+      });
+    }
 
-          try {
-            const originalUrl = qrImage.src;
+    // Скачать PDF
+    const downloadBtn = document.getElementById("download-pdf");
+    if (downloadBtn) {
+      downloadBtn.addEventListener("click", () => {
+        const link = document.createElement("a");
+        link.href = data.downloadURLPdf;
+        link.download = "Квитанция.pdf";
+        document.body.appendChild(link);
+        // Отправляем ссылку в Flutter
+        if (window.flutter_inappwebview) {
+          window.flutter_inappwebview.callHandler("onDownload", link.href);
+        }
+        link.click();
+        document.body.removeChild(link);
+      });
+    }
 
-            // Отправляем в Flutter оригинальную ссылку
-            if (window.flutter_inappwebview) {
-              window.flutter_inappwebview.callHandler("onDownloadQr", originalUrl);
-            }
+    const saveQrBtn = document.getElementById("save-qr");
+    if (saveQrBtn) {
+      saveQrBtn.addEventListener("click", async () => {
+        const qrImage = document.getElementById("qr-image");
+        if (!qrImage) return;
 
-            // Если хочешь ещё и "скачать" картинку как файл:
-            const link = document.createElement("a");
-            link.href = originalUrl;
-            link.download = "qr-code.png";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          } catch (err) {
-            console.error("Ошибка сохранения QR:", err);
-            alert("Не удалось сохранить QR. Попробуйте снова.");
+        try {
+          const originalUrl = qrImage.src;
+
+          // Отправляем в Flutter оригинальную ссылку
+          if (window.flutter_inappwebview) {
+            window.flutter_inappwebview.callHandler("onDownloadQr", originalUrl);
           }
-        });
-      }
 
-      const openBtn = document.querySelector(".open");
+          // Если хочешь ещё и "скачать" картинку как файл:
+          const link = document.createElement("a");
+          link.href = originalUrl;
+          link.download = "qr-code.png";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } catch (err) {
+          console.error("Ошибка сохранения QR:", err);
+          alert("Не удалось сохранить QR. Попробуйте снова.");
+        }
+      });
+    }
 
-      if (openBtn) {
-        openBtn.addEventListener("click", () => {
-          // Выбираем корректную ссылку
-          const pdfLink = data.openURLPdf || data.downloadURLPdf;
+    const openBtn = document.querySelector(".open");
 
-          // Открываем PDF в новом окне
-          if (pdfLink) {
-            window.open(pdfLink, "_blank");
+    if (openBtn) {
+      openBtn.addEventListener("click", () => {
+        // Выбираем корректную ссылку
+        const pdfLink = data.openURLPdf || data.downloadURLPdf;
 
-            // Отправляем ссылку в Flutter
-            if (window.flutter_inappwebview && typeof window.flutter_inappwebview.callHandler === "function") {
-              window.flutter_inappwebview.callHandler("onOpenPdf", pdfLink);
-            }
-          } else {
-            console.error("Ссылка на PDF не задана!");
+        // Открываем PDF в новом окне
+        if (pdfLink) {
+          window.open(pdfLink, "_blank");
+
+          // Отправляем ссылку в Flutter
+          if (window.flutter_inappwebview && typeof window.flutter_inappwebview.callHandler === "function") {
+            window.flutter_inappwebview.callHandler("onOpenPdf", pdfLink);
           }
-        });
-      }
+        } else {
+          console.error("Ссылка на PDF не задана!");
+        }
+      });
+    }
 
-      // Кнопка "Оплатить"
-      const payActionBtn = document.querySelector(".btn-pay-main");
-      if (payActionBtn) {
-        payActionBtn.addEventListener("click", () => {
-          if (data?.deeplinkURL) {
-            window.open(data.deeplinkURL, "_blank");
-          } else {
-            alert("Ссылка на оплату не найдена");
-          }
-        });
-      }
-    });
+    // Кнопка "Оплатить"
+    const payActionBtn = document.querySelector(".btn-pay-main");
+    if (payActionBtn) {
+      payActionBtn.addEventListener("click", () => {
+        if (data?.deeplinkURL) {
+          window.open(data.deeplinkURL, "_blank");
+        } else {
+          alert("Ссылка на оплату не найдена");
+        }
+      });
+    }
   }
 
   /* -------------------- ОТПРАВКА ФОРМЫ -------------------- */
@@ -500,7 +477,7 @@ document.addEventListener("DOMContentLoaded", () => {
       submitBtn.disabled = account.trim() === "";
     }
   });
-
+// asasas
   /* -------------------- ИНИЦИАЛИЗАЦИЯ -------------------- */
   // Устанавливаем начальное состояние в истории браузера
   history.replaceState({ state: "main" }, "", window.location.href);
